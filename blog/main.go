@@ -16,11 +16,14 @@ func main() {
 	//}
 	engine := zhuo.New()
 	g := engine.Group("user")
-	g.Add("/hello", func(w http.ResponseWriter, r *http.Request) {
+	g.Get("/hello", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "%s 欢迎来到卓的Go框架", "zhuo.com")
 	})
-	g.Add("/info", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "%s info信息", "zhuo.com")
+	g.Post("/hello", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "%s hello", "zhuo.com")
+	})
+	g.Any("/any", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "%s info1", "zhuo.com")
 	})
 	order := engine.Group("order")
 	order.Add("/get", func(w http.ResponseWriter, r *http.Request) {
