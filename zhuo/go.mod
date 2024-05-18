@@ -1,3 +1,3 @@
-module github.com/anneliser/g0zhuo
+module zhuo
 
 go 1.21.0

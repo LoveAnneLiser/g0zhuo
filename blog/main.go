@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	zhuo "github.com/anneliser/g0zhuo"
 	"net/http"
+	"zhuo"
 )
 
 func main() {
