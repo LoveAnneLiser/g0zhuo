@@ -7,12 +7,31 @@ import (
 
 type HandleFunc func(w http.ResponseWriter, r *http.Request)
 
-type router struct {
+// 分组路由
+type routerGroup struct {
+	name          string
 	handleFuncMap map[string]HandleFunc //
 }
 
-func (r *router) Add(name string, handleFunc HandleFunc) {
+func (r *routerGroup) Add(name string, handleFunc HandleFunc) {
 	r.handleFuncMap[name] = handleFunc
+}
+
+// user get-> handle
+// goods
+// order
+type router struct {
+	routerGroup []*routerGroup // 分组
+}
+
+// Group 实现分组
+func (r *router) Group(name string) *routerGroup {
+	routerGroup := &routerGroup{
+		name:          name,
+		handleFuncMap: make(map[string]HandleFunc),
+	}
+	r.routerGroup = append(r.routerGroup, routerGroup)
+	return routerGroup
 }
 
 type Engine struct {
@@ -21,14 +40,17 @@ type Engine struct {
 
 func New() *Engine {
 	return &Engine{
-		router: router{handleFuncMap: make(map[string]HandleFunc)},
+		router: router{},
 	}
 }
 
 func (e *Engine) Run() {
-
-	for key, value := range e.handleFuncMap {
-		http.HandleFunc(key, value) //
+	// user key :get value: func
+	for _, group := range e.routerGroup {
+		for key, value := range group.handleFuncMap {
+			http.HandleFunc("/"+group.name+key, value)
+			log.Printf("/" + group.name + key)
+		}
 	}
 	err := http.ListenAndServe(":8111", nil)
 	if err != nil {
