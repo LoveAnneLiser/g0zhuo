@@ -8,46 +8,62 @@ import (
 
 const ANY = "ANY"
 
-type HandleFunc func(ctx *Context)
+type HandlerFunc func(ctx *Context)
 
 // 分组路由
 type routerGroup struct {
 	name             string
-	handleFuncMap    map[string]map[string]HandleFunc
+	handlerFuncMap   map[string]map[string]HandlerFunc
 	handlerMethodMap map[string][]string
 	treeNode         *treeNode
 }
 
-//func (r *routerGroup) Add(name string, handleFunc HandleFunc) {
-//	r.handleFuncMap[name] = handleFunc
+//func (r *routerGroup) Add(name string, handlerFunc HandlerFunc) {
+//	r.handlerFuncMap[name] = handlerFunc
 //}
 
 // 提取操作 减少冗余
-func (r *routerGroup) handle(name string, method string, handleFunc HandleFunc) {
-	_, ok := r.handleFuncMap[name]
+func (r *routerGroup) handle(name string, method string, handlerFunc HandlerFunc) {
+	_, ok := r.handlerFuncMap[name]
 	if !ok {
-		r.handleFuncMap[name] = make(map[string]HandleFunc)
+		r.handlerFuncMap[name] = make(map[string]HandlerFunc)
 	}
 
-	_, ok = r.handleFuncMap[name][method]
-	if ok { // 重复定义了handleFunc
+	_, ok = r.handlerFuncMap[name][method]
+	if ok { // 重复定义了handlerFunc
 		panic(method + ": 同一个路由，不能重复")
 	}
-	r.handleFuncMap[name][method] = handleFunc
+	r.handlerFuncMap[name][method] = handlerFunc
 	r.treeNode.Put(name)
 	//r.handlerMethodMap[method] = append(r.handlerMethodMap[method], name)
 }
 
-func (r *routerGroup) Any(name string, handleFunc HandleFunc) {
-	r.handle(name, ANY, handleFunc)
+func (r *routerGroup) Any(name string, handlerFunc HandlerFunc) {
+	r.handle(name, ANY, handlerFunc)
 }
 
-func (r *routerGroup) Get(name string, handleFunc HandleFunc) {
-	r.handle(name, http.MethodGet, handleFunc)
+func (r *routerGroup) Get(name string, handlerFunc HandlerFunc) {
+	r.handle(name, http.MethodGet, handlerFunc)
 }
 
-func (r *routerGroup) Post(name string, handleFunc HandleFunc) {
-	r.handle(name, http.MethodPost, handleFunc)
+func (r *routerGroup) Post(name string, handlerFunc HandlerFunc) {
+	r.handle(name, http.MethodPost, handlerFunc)
+}
+
+func (r *routerGroup) Delete(name string, handlerFunc HandlerFunc) {
+	r.handle(name, http.MethodDelete, handlerFunc)
+}
+func (r *routerGroup) Put(name string, handlerFunc HandlerFunc) {
+	r.handle(name, http.MethodPut, handlerFunc)
+}
+func (r *routerGroup) Patch(name string, handlerFunc HandlerFunc) {
+	r.handle(name, http.MethodPatch, handlerFunc)
+}
+func (r *routerGroup) Options(name string, handlerFunc HandlerFunc) {
+	r.handle(name, http.MethodOptions, handlerFunc)
+}
+func (r *routerGroup) Head(name string, handlerFunc HandlerFunc) {
+	r.handle(name, http.MethodHead, handlerFunc)
 }
 
 // user get-> handle
@@ -61,7 +77,7 @@ type router struct {
 func (r *router) Group(name string) *routerGroup {
 	routerGroup := &routerGroup{
 		name:             name,
-		handleFuncMap:    make(map[string]map[string]HandleFunc),
+		handlerFuncMap:   make(map[string]map[string]HandlerFunc),
 		handlerMethodMap: make(map[string][]string),
 		treeNode:         &treeNode{name: "/", children: make([]*treeNode, 0)},
 	}
@@ -99,13 +115,13 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				W: w,
 				R: r,
 			}
-			handle, ok := group.handleFuncMap[node.routerName][ANY]
+			handle, ok := group.handlerFuncMap[node.routerName][ANY]
 			//			log.Println("node.routerName名称：", node.routerName)
 			if ok {
 				handle(ctx)
 				return
 			}
-			handle, ok = group.handleFuncMap[node.routerName][method]
+			handle, ok = group.handlerFuncMap[node.routerName][method]
 			if ok {
 				handle(ctx)
 				return
@@ -115,7 +131,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 
 		}
-		//for name, methodHandle := range group.handleFuncMap {
+		//for name, methodHandle := range group.handlerFuncMap {
 		//	url := "/" + group.name + name
 		//	log.Println("url: ", url)
 		//	}
@@ -128,8 +144,8 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (e *Engine) Run() {
 	// user key :get value: func
 	//for _, group := range e.routerGroup {
-	//	for key, value := range group.handleFuncMap {
-	//		http.HandleFunc("/"+group.name+key, value)
+	//	for key, value := range group.handlerFuncMap {
+	//		http.HandlerFunc("/"+group.name+key, value)
 	//		log.Printf("/" + group.name + key)
 	//	}
 	//}
