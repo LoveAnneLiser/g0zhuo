@@ -15,17 +15,22 @@ func main() {
 	//}
 	engine := zhuo.New()
 	g := engine.Group("user")
-	g.Get("/hello", func(ctx *zhuo.Context) {
+	g.Get("/hello/get", func(ctx *zhuo.Context) {
 		fmt.Fprintf(ctx.W, "%s get 欢迎来到卓的Go框架", "zhuo.com")
 	})
-	g.Post("/hello", func(ctx *zhuo.Context) {
+	g.Post("/hello/get", func(ctx *zhuo.Context) {
 		fmt.Fprintf(ctx.W, "%s post hello", "zhuo.com")
 	})
+
+	g.Get("/hello/*/get", func(ctx *zhuo.Context) {
+		fmt.Fprintf(ctx.W, "%s post /hello/*/get", "zhuo.com")
+	})
+
 	g.Get("/get/:id", func(ctx *zhuo.Context) {
 		fmt.Fprintf(ctx.W, "%s get user info path variable", "zhuo.com")
 	})
 	order := engine.Group("order")
-	order.Any("/get", func(ctx *zhuo.Context) {
+	order.Get("/get/goods", func(ctx *zhuo.Context) {
 		fmt.Fprintf(ctx.W, "%s 查询订单", "zhuo.com")
 	})
 	engine.Run()

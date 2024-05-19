@@ -35,7 +35,7 @@ func (r *routerGroup) handle(name string, method string, handleFunc HandleFunc) 
 	}
 	r.handleFuncMap[name][method] = handleFunc
 	r.treeNode.Put(name)
-	r.handlerMethodMap[method] = append(r.handlerMethodMap[method], name)
+	//r.handlerMethodMap[method] = append(r.handlerMethodMap[method], name)
 }
 
 func (r *routerGroup) Any(name string, handleFunc HandleFunc) {
@@ -84,10 +84,15 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// fmt.Println(method) 得到方法
 	for _, group := range e.routerGroup {
 		routerName := SubStringLast(r.RequestURI, "/"+group.name)
-		log.Println("截掉后的路由名称：", routerName)
-		// get/1
+		//fmt.Printf("截掉后的路由名称：%s\n", routerName)
+		// /get/1
 		node := group.treeNode.Get(routerName)
-		log.Println("node名称：", node.name)
+		if node == nil || !node.isEnd {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintln(w, r.RequestURI+" not found")
+			return
+		}
+		//fmt.Printf("node名称：%s\n", node.name) // bug1: 要先判断node是否为空，如果直接打印为空的值 会直接报错。（空指针）
 		if node != nil {
 			// 路由匹配
 			ctx := &Context{
@@ -95,7 +100,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				R: r,
 			}
 			handle, ok := group.handleFuncMap[node.routerName][ANY]
-			log.Println("node.routerName名称：", node.routerName)
+			//			log.Println("node.routerName名称：", node.routerName)
 			if ok {
 				handle(ctx)
 				return
