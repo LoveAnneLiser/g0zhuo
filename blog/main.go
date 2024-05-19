@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"zhuo"
 )
 
@@ -16,18 +15,18 @@ func main() {
 	//}
 	engine := zhuo.New()
 	g := engine.Group("user")
-	g.Get("/hello", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "%s 欢迎来到卓的Go框架", "zhuo.com")
+	g.Get("/hello", func(ctx *zhuo.Context) {
+		fmt.Fprintf(ctx.W, "%s get 欢迎来到卓的Go框架", "zhuo.com")
 	})
-	g.Post("/hello", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "%s hello", "zhuo.com")
+	g.Post("/hello", func(ctx *zhuo.Context) {
+		fmt.Fprintf(ctx.W, "%s post hello", "zhuo.com")
 	})
-	g.Any("/any", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "%s info1", "zhuo.com")
+	g.Any("/any", func(ctx *zhuo.Context) {
+		fmt.Fprintf(ctx.W, "%s info1", "zhuo.com")
 	})
 	order := engine.Group("order")
-	order.Add("/get", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "%s 查询订单", "zhuo.com")
+	order.Any("/get", func(ctx *zhuo.Context) {
+		fmt.Fprintf(ctx.W, "%s 查询订单", "zhuo.com")
 	})
 	engine.Run()
 }

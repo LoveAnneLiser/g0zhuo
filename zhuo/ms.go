@@ -6,32 +6,46 @@ import (
 	"net/http"
 )
 
-type HandleFunc func(w http.ResponseWriter, r *http.Request)
+const ANY = "ANY"
+
+type HandleFunc func(ctx *Context)
 
 // 分组路由
 type routerGroup struct {
 	name             string
-	handleFuncMap    map[string]HandleFunc
+	handleFuncMap    map[string]map[string]HandleFunc
 	handlerMethodMap map[string][]string
 }
 
-func (r *routerGroup) Add(name string, handleFunc HandleFunc) {
-	r.handleFuncMap[name] = handleFunc
+//func (r *routerGroup) Add(name string, handleFunc HandleFunc) {
+//	r.handleFuncMap[name] = handleFunc
+//}
+
+// 提取操作 减少冗余
+func (r *routerGroup) handle(name string, method string, handleFunc HandleFunc) {
+	_, ok := r.handleFuncMap[name]
+	if !ok {
+		r.handleFuncMap[name] = make(map[string]HandleFunc)
+	}
+
+	_, ok = r.handleFuncMap[name][method]
+	if ok { // 重复定义了handleFunc
+		panic(method + ": 同一个路由，不能重复")
+	}
+	r.handleFuncMap[name][method] = handleFunc
+	r.handlerMethodMap[method] = append(r.handlerMethodMap[method], name)
 }
 
 func (r *routerGroup) Any(name string, handleFunc HandleFunc) {
-	r.handleFuncMap[name] = handleFunc
-	r.handlerMethodMap["ANY"] = append(r.handlerMethodMap["ANY"], name)
+	r.handle(name, ANY, handleFunc)
 }
 
 func (r *routerGroup) Get(name string, handleFunc HandleFunc) {
-	r.handleFuncMap[name] = handleFunc
-	r.handlerMethodMap[http.MethodGet] = append(r.handlerMethodMap[http.MethodGet], name)
+	r.handle(name, http.MethodGet, handleFunc)
 }
 
 func (r *routerGroup) Post(name string, handleFunc HandleFunc) {
-	r.handleFuncMap[name] = handleFunc
-	r.handlerMethodMap[http.MethodPost] = append(r.handlerMethodMap[http.MethodPost], name)
+	r.handle(name, http.MethodPost, handleFunc)
 }
 
 // user get-> handle
@@ -45,7 +59,7 @@ type router struct {
 func (r *router) Group(name string) *routerGroup {
 	routerGroup := &routerGroup{
 		name:             name,
-		handleFuncMap:    make(map[string]HandleFunc),
+		handleFuncMap:    make(map[string]map[string]HandleFunc),
 		handlerMethodMap: make(map[string][]string),
 	}
 	r.routerGroup = append(r.routerGroup, routerGroup)
@@ -70,25 +84,19 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			url := "/" + group.name + name
 			log.Println("url: ", url)
 			if r.RequestURI == url { // 路由匹配
-				routes, ok := group.handlerMethodMap["ANY"]
-				if ok {
-					for _, routerName := range routes {
-						if routerName == name {
-							methodHandle(w, r)
-							return
-						}
-					}
+				ctx := &Context{
+					W: w,
+					R: r,
 				}
-				// 根据method进行匹配
-				routes, ok = group.handlerMethodMap[method]
-				if ok { // 代表路径一样 但是请求方式没有
-					for _, routerName := range routes {
-						if routerName == name {
-
-							methodHandle(w, r)
-							return
-						}
-					}
+				handle, ok := methodHandle[ANY]
+				if ok {
+					handle(ctx)
+					return
+				}
+				handle, ok = methodHandle[method]
+				if ok {
+					handle(ctx)
+					return
 				}
 				w.WriteHeader(http.StatusMethodNotAllowed) // 405
 				fmt.Fprintln(w, r.RequestURI+" "+method+" 这个请求方式不允许")
