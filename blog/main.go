@@ -21,8 +21,8 @@ func main() {
 	g.Post("/hello", func(ctx *zhuo.Context) {
 		fmt.Fprintf(ctx.W, "%s post hello", "zhuo.com")
 	})
-	g.Any("/any", func(ctx *zhuo.Context) {
-		fmt.Fprintf(ctx.W, "%s info1", "zhuo.com")
+	g.Get("/get/:id", func(ctx *zhuo.Context) {
+		fmt.Fprintf(ctx.W, "%s get user info path variable", "zhuo.com")
 	})
 	order := engine.Group("order")
 	order.Any("/get", func(ctx *zhuo.Context) {

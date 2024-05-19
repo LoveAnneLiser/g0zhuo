@@ -15,6 +15,7 @@ type routerGroup struct {
 	name             string
 	handleFuncMap    map[string]map[string]HandleFunc
 	handlerMethodMap map[string][]string
+	treeNode         *treeNode
 }
 
 //func (r *routerGroup) Add(name string, handleFunc HandleFunc) {
@@ -33,6 +34,7 @@ func (r *routerGroup) handle(name string, method string, handleFunc HandleFunc) 
 		panic(method + ": 同一个路由，不能重复")
 	}
 	r.handleFuncMap[name][method] = handleFunc
+	r.treeNode.Put(name)
 	r.handlerMethodMap[method] = append(r.handlerMethodMap[method], name)
 }
 
@@ -61,6 +63,7 @@ func (r *router) Group(name string) *routerGroup {
 		name:             name,
 		handleFuncMap:    make(map[string]map[string]HandleFunc),
 		handlerMethodMap: make(map[string][]string),
+		treeNode:         &treeNode{name: "/", children: make([]*treeNode, 0)},
 	}
 	r.routerGroup = append(r.routerGroup, routerGroup)
 	return routerGroup
@@ -80,29 +83,38 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	// fmt.Println(method) 得到方法
 	for _, group := range e.routerGroup {
-		for name, methodHandle := range group.handleFuncMap {
-			url := "/" + group.name + name
-			log.Println("url: ", url)
-			if r.RequestURI == url { // 路由匹配
-				ctx := &Context{
-					W: w,
-					R: r,
-				}
-				handle, ok := methodHandle[ANY]
-				if ok {
-					handle(ctx)
-					return
-				}
-				handle, ok = methodHandle[method]
-				if ok {
-					handle(ctx)
-					return
-				}
-				w.WriteHeader(http.StatusMethodNotAllowed) // 405
-				fmt.Fprintln(w, r.RequestURI+" "+method+" 这个请求方式不允许")
+		routerName := SubStringLast(r.RequestURI, "/"+group.name)
+		log.Println("截掉后的路由名称：", routerName)
+		// get/1
+		node := group.treeNode.Get(routerName)
+		log.Println("node名称：", node.name)
+		if node != nil {
+			// 路由匹配
+			ctx := &Context{
+				W: w,
+				R: r,
+			}
+			handle, ok := group.handleFuncMap[node.routerName][ANY]
+			log.Println("node.routerName名称：", node.routerName)
+			if ok {
+				handle(ctx)
 				return
 			}
+			handle, ok = group.handleFuncMap[node.routerName][method]
+			if ok {
+				handle(ctx)
+				return
+			}
+			w.WriteHeader(http.StatusMethodNotAllowed) // 405
+			fmt.Fprintln(w, r.RequestURI+" "+method+" 这个请求方式不允许")
+			return
+
 		}
+		//for name, methodHandle := range group.handleFuncMap {
+		//	url := "/" + group.name + name
+		//	log.Println("url: ", url)
+		//	}
+		//}
 	}
 	w.WriteHeader(http.StatusNotFound) // 404
 	fmt.Fprintf(w, "%s not found \n", r.RequestURI)
