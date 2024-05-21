@@ -15,7 +15,15 @@ func main() {
 	//}
 	engine := zhuo.New()
 	g := engine.Group("user")
+	// 测试前置中间件
+	g.PreHandle(func(next zhuo.HandlerFunc) zhuo.HandlerFunc {
+		return func(ctx *zhuo.Context) {
+			fmt.Println("pre handler")
+			next(ctx)
+		}
+	})
 	g.Get("/hello/get", func(ctx *zhuo.Context) {
+		fmt.Println("/hello/get handler")
 		fmt.Fprintf(ctx.W, "%s get 欢迎来到卓的Go框架", "zhuo.com")
 	})
 	g.Post("/hello/get", func(ctx *zhuo.Context) {

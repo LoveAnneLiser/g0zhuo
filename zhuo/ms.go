@@ -10,12 +10,36 @@ const ANY = "ANY"
 
 type HandlerFunc func(ctx *Context)
 
+// 定义中间件
+type MiddlewareFunc func(handlerFunc HandlerFunc) HandlerFunc
+
 // 分组路由
 type routerGroup struct {
 	name             string
 	handlerFuncMap   map[string]map[string]HandlerFunc
 	handlerMethodMap map[string][]string
 	treeNode         *treeNode
+	preMiddlewares   []MiddlewareFunc // 前中间件
+	postMiddlewares  []MiddlewareFunc // 后中间件
+}
+
+func (r *routerGroup) PreHandle(middlewareFunc ...MiddlewareFunc) {
+	r.preMiddlewares = append(r.preMiddlewares, middlewareFunc...)
+}
+
+func (r *routerGroup) PostHandle(middlewareFunc ...MiddlewareFunc) {
+	r.postMiddlewares = append(r.postMiddlewares, middlewareFunc...)
+}
+
+func (r *routerGroup) methodHandle(h HandlerFunc, ctx *Context) {
+	// 前置中间件
+	if r.preMiddlewares != nil {
+		for _, middlewareFunc := range r.preMiddlewares {
+			h = middlewareFunc(h)
+		}
+	}
+	h(ctx)
+	// 后置中间件
 }
 
 //func (r *routerGroup) Add(name string, handlerFunc HandlerFunc) {
@@ -96,6 +120,10 @@ func New() *Engine {
 }
 
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	e.httpRequestHandle(w, r)
+}
+
+func (e *Engine) httpRequestHandle(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	// fmt.Println(method) 得到方法
 	for _, group := range e.routerGroup {
@@ -118,12 +146,12 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			handle, ok := group.handlerFuncMap[node.routerName][ANY]
 			//			log.Println("node.routerName名称：", node.routerName)
 			if ok {
-				handle(ctx)
+				group.methodHandle(handle, ctx)
 				return
 			}
 			handle, ok = group.handlerFuncMap[node.routerName][method]
 			if ok {
-				handle(ctx)
+				group.methodHandle(handle, ctx)
 				return
 			}
 			w.WriteHeader(http.StatusMethodNotAllowed) // 405
@@ -131,11 +159,6 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 
 		}
-		//for name, methodHandle := range group.handlerFuncMap {
-		//	url := "/" + group.name + name
-		//	log.Println("url: ", url)
-		//	}
-		//}
 	}
 	w.WriteHeader(http.StatusNotFound) // 404
 	fmt.Fprintf(w, "%s not found \n", r.RequestURI)
