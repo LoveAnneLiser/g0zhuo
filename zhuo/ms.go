@@ -15,24 +15,34 @@ type MiddlewareFunc func(handlerFunc HandlerFunc) HandlerFunc
 
 // 分组路由
 type routerGroup struct {
-	name             string
-	handlerFuncMap   map[string]map[string]HandlerFunc
-	handlerMethodMap map[string][]string
-	treeNode         *treeNode
-	middlewares      []MiddlewareFunc // 中间件
+	name               string
+	handlerFuncMap     map[string]map[string]HandlerFunc
+	middlewaresFuncMap map[string]map[string][]MiddlewareFunc
+	handlerMethodMap   map[string][]string
+	treeNode           *treeNode
+	middlewares        []MiddlewareFunc // 中间件
 }
 
 func (r *routerGroup) Use(middlewareFunc ...MiddlewareFunc) {
 	r.middlewares = append(r.middlewares, middlewareFunc...)
 }
 
-func (r *routerGroup) methodHandle(h HandlerFunc, ctx *Context) {
-	// 中间件
+func (r *routerGroup) methodHandle(name string, method string, h HandlerFunc, ctx *Context) {
+	// 通用中间件
 	if r.middlewares != nil {
 		for _, middlewareFunc := range r.middlewares {
 			h = middlewareFunc(h)
 		}
 	}
+
+	// 路由级别中间件
+	middlewareFuncs := r.middlewaresFuncMap[name][method]
+	if middlewareFuncs != nil {
+		for _, middlewareFunc := range middlewareFuncs {
+			h = middlewareFunc(h)
+		}
+	}
+	// 路由中间件在最外层，所以先执行了路由中间件。
 	h(ctx)
 }
 
@@ -41,10 +51,11 @@ func (r *routerGroup) methodHandle(h HandlerFunc, ctx *Context) {
 //}
 
 // 提取操作 减少冗余
-func (r *routerGroup) handle(name string, method string, handlerFunc HandlerFunc) {
+func (r *routerGroup) handle(name string, method string, handlerFunc HandlerFunc, middlewareFun ...MiddlewareFunc) {
 	_, ok := r.handlerFuncMap[name]
 	if !ok {
 		r.handlerFuncMap[name] = make(map[string]HandlerFunc)
+		r.middlewaresFuncMap[name] = make(map[string][]MiddlewareFunc)
 	}
 
 	_, ok = r.handlerFuncMap[name][method]
@@ -52,36 +63,37 @@ func (r *routerGroup) handle(name string, method string, handlerFunc HandlerFunc
 		panic(method + ": 同一个路由，不能重复")
 	}
 	r.handlerFuncMap[name][method] = handlerFunc
+	r.middlewaresFuncMap[name][method] = append(r.middlewaresFuncMap[name][method], middlewareFun...)
 	r.treeNode.Put(name)
 	//r.handlerMethodMap[method] = append(r.handlerMethodMap[method], name)
 }
 
-func (r *routerGroup) Any(name string, handlerFunc HandlerFunc) {
-	r.handle(name, ANY, handlerFunc)
+func (r *routerGroup) Any(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, ANY, handlerFunc, middlewareFunc...)
 }
 
-func (r *routerGroup) Get(name string, handlerFunc HandlerFunc) {
-	r.handle(name, http.MethodGet, handlerFunc)
+func (r *routerGroup) Get(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, http.MethodGet, handlerFunc, middlewareFunc...)
 }
 
-func (r *routerGroup) Post(name string, handlerFunc HandlerFunc) {
-	r.handle(name, http.MethodPost, handlerFunc)
+func (r *routerGroup) Post(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, http.MethodPost, handlerFunc, middlewareFunc...)
 }
 
-func (r *routerGroup) Delete(name string, handlerFunc HandlerFunc) {
-	r.handle(name, http.MethodDelete, handlerFunc)
+func (r *routerGroup) Delete(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, http.MethodDelete, handlerFunc, middlewareFunc...)
 }
-func (r *routerGroup) Put(name string, handlerFunc HandlerFunc) {
-	r.handle(name, http.MethodPut, handlerFunc)
+func (r *routerGroup) Put(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, http.MethodPut, handlerFunc, middlewareFunc...)
 }
-func (r *routerGroup) Patch(name string, handlerFunc HandlerFunc) {
-	r.handle(name, http.MethodPatch, handlerFunc)
+func (r *routerGroup) Patch(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, http.MethodPatch, handlerFunc, middlewareFunc...)
 }
-func (r *routerGroup) Options(name string, handlerFunc HandlerFunc) {
-	r.handle(name, http.MethodOptions, handlerFunc)
+func (r *routerGroup) Options(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, http.MethodOptions, handlerFunc, middlewareFunc...)
 }
-func (r *routerGroup) Head(name string, handlerFunc HandlerFunc) {
-	r.handle(name, http.MethodHead, handlerFunc)
+func (r *routerGroup) Head(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, http.MethodHead, handlerFunc, middlewareFunc...)
 }
 
 // user get-> handle
@@ -94,10 +106,11 @@ type router struct {
 // Group 实现分组
 func (r *router) Group(name string) *routerGroup {
 	routerGroup := &routerGroup{
-		name:             name,
-		handlerFuncMap:   make(map[string]map[string]HandlerFunc),
-		handlerMethodMap: make(map[string][]string),
-		treeNode:         &treeNode{name: "/", children: make([]*treeNode, 0)},
+		name:               name,
+		handlerFuncMap:     make(map[string]map[string]HandlerFunc),
+		middlewaresFuncMap: make(map[string]map[string][]MiddlewareFunc),
+		handlerMethodMap:   make(map[string][]string),
+		treeNode:           &treeNode{name: "/", children: make([]*treeNode, 0)},
 	}
 	r.routerGroup = append(r.routerGroup, routerGroup)
 	return routerGroup
@@ -140,12 +153,12 @@ func (e *Engine) httpRequestHandle(w http.ResponseWriter, r *http.Request) {
 			handle, ok := group.handlerFuncMap[node.routerName][ANY]
 			//			log.Println("node.routerName名称：", node.routerName)
 			if ok {
-				group.methodHandle(handle, ctx)
+				group.methodHandle(node.routerName, ANY, handle, ctx)
 				return
 			}
 			handle, ok = group.handlerFuncMap[node.routerName][method]
 			if ok {
-				group.methodHandle(handle, ctx)
+				group.methodHandle(node.routerName, method, handle, ctx)
 				return
 			}
 			w.WriteHeader(http.StatusMethodNotAllowed) // 405
