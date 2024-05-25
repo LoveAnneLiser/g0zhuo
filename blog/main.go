@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"zhuo"
 )
 
@@ -39,6 +40,9 @@ func main() {
 
 	g.Get("/get/:id", func(ctx *zhuo.Context) {
 		fmt.Fprintf(ctx.W, "%s get user info path variable", "zhuo.com")
+	})
+	g.Get("/html", func(ctx *zhuo.Context) {
+		ctx.HTML(http.StatusOK, "<h1>小卓学Go</h1>")
 	})
 	order := engine.Group("order")
 	order.Get("/get/goods", func(ctx *zhuo.Context) {

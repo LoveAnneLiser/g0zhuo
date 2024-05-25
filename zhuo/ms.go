@@ -135,7 +135,7 @@ func (e *Engine) httpRequestHandle(w http.ResponseWriter, r *http.Request) {
 	// fmt.Println(method) 得到方法
 	for _, group := range e.routerGroup {
 		routerName := SubStringLast(r.RequestURI, "/"+group.name)
-		//fmt.Printf("截掉后的路由名称：%s\n", routerName)
+		fmt.Printf("截掉后的路由名称：%s\n", routerName)
 		// /get/1
 		node := group.treeNode.Get(routerName)
 		if node == nil || !node.isEnd {
@@ -143,7 +143,7 @@ func (e *Engine) httpRequestHandle(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, r.RequestURI+" not found")
 			return
 		}
-		//fmt.Printf("node名称：%s\n", node.name) // bug1: 要先判断node是否为空，如果直接打印为空的值 会直接报错。（空指针）
+		fmt.Printf("node名称：%s\n", node.name) // bug1: 要先判断node是否为空，如果直接打印为空的值 会直接报错。（空指针）
 		if node != nil {
 			// 路由匹配
 			ctx := &Context{
@@ -151,7 +151,7 @@ func (e *Engine) httpRequestHandle(w http.ResponseWriter, r *http.Request) {
 				R: r,
 			}
 			handle, ok := group.handlerFuncMap[node.routerName][ANY]
-			//			log.Println("node.routerName名称：", node.routerName)
+			log.Println("node.routerName名称：", node.routerName)
 			if ok {
 				group.methodHandle(node.routerName, ANY, handle, ctx)
 				return
@@ -164,7 +164,6 @@ func (e *Engine) httpRequestHandle(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusMethodNotAllowed) // 405
 			fmt.Fprintln(w, r.RequestURI+" "+method+" 这个请求方式不允许")
 			return
-
 		}
 	}
 	w.WriteHeader(http.StatusNotFound) // 404
