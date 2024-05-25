@@ -6,6 +6,10 @@ import (
 	"zhuo"
 )
 
+type User struct {
+	Name string
+}
+
 func Log(next zhuo.HandlerFunc) zhuo.HandlerFunc {
 	return func(ctx *zhuo.Context) {
 		fmt.Println("打印请求参数")
@@ -43,6 +47,21 @@ func main() {
 	})
 	g.Get("/html", func(ctx *zhuo.Context) {
 		ctx.HTML(http.StatusOK, "<h1>小卓学Go</h1>")
+	})
+	g.Get("/htmlTemplate", func(ctx *zhuo.Context) {
+		user := &User{"zhuo"}
+		err := ctx.HTMLTemplate("login.html", user, "tpl/login.html", "tpl/header.html")
+		if err != nil {
+			fmt.Println("err:", err)
+		}
+	})
+
+	g.Get("/htmlTemplateGlob", func(ctx *zhuo.Context) {
+		user := &User{"zhuo"}
+		err := ctx.HTMLTemplateGlob("login.html", user, "tpl/*.html")
+		if err != nil {
+			fmt.Println("err:", err)
+		}
 	})
 	order := engine.Group("order")
 	order.Get("/get/goods", func(ctx *zhuo.Context) {
